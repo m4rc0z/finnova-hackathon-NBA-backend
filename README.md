@@ -127,7 +127,7 @@ Jede Empfehlung muss neben dem numerischen `score` nachvollziehbare `reasons` zu
 
 Das Modul `src/response_model.py` erzeugt Trainingsbeispiele aus Events und Transaktionen. Für jede Kunden-/Action-Kombination wird geprüft, ob zwischen dem Beobachtungszeitpunkt und den folgenden sieben simulierten Tagen eine passende Aktivität stattfindet.
 
-Die Zeitachse wird als `period * 31 + day_of_month` geordnet. Sie ist eine simulierte Ordnung und kein echtes Kalenderdatum. Bei `individual_state.csv` wird mangels Tagesfeld Tag `1` verwendet.
+Die Zeitachse verwendet `period` als gemeinsame simulierte Tages-/Perioden-ID. `day_of_month` wird nicht in das 7-Tage-Fenster eingerechnet, weil es nur bei Transaktionen vorkommt und keine globale Zeitachse bildet.
 
 Beispielverwendung:
 
@@ -149,7 +149,7 @@ print(classifier.rank_actions(features))
 print(metrics)
 ```
 
-Das Modell verwendet eine zeitbasierte Trennung: frühere Perioden werden zum Training und spätere Perioden zum Test verwendet. Es nutzt aktuell eine erklärbare Logistic Regression und liefert pro Action eine Conversion-Wahrscheinlichkeit für das 7-Tage-Fenster.
+Das Modell verwendet eine zeitbasierte Trennung: frühere Perioden werden zum Training und spätere Perioden zum Test verwendet. Es nutzt aktuell eine erklärbare Logistic Regression und liefert pro Action eine Conversion-Wahrscheinlichkeit für das 7-Tage-Fenster. Die aktuelle Stichprobe enthält nur wenige positive Labels; die Metriken müssen deshalb als technische Baseline und nicht als produktionsreife Modellqualität interpretiert werden.
 
 Aktuelle Event-/Transaktions-Mappings:
 

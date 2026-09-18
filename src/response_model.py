@@ -1,9 +1,4 @@
-"""Streaming training data for next-best-action response modelling.
-
-The source data has a simulated period and, for transactions/events, a day in
-that period. ``period * 31 + day`` is used only as an ordering key; it is not a
-calendar date.
-"""
+"""Streaming training data for next-best-action response modelling."""
 
 import csv
 import json
@@ -126,8 +121,8 @@ def train_response_model(
 
 
 def observation_key(period: int, day_of_month: int) -> int:
-    """Return an ordering key for the simulated period/day axis."""
-    return period * 31 + day_of_month
+    """Return the shared simulated daily period used by all source tables."""
+    return period
 
 
 def _event_day(event: dict[str, str], effects: dict[str, Any]) -> int:
@@ -204,7 +199,7 @@ def _load_observations(data_dir: Path) -> list[tuple[str, int, int, dict[str, An
     """Load historical customer states used as prediction cut-offs.
 
     ``individual_state.csv`` is the period-based financial state in this
-    repository. It has no day column, so state observations use day 1.
+    repository. It has no day column; its period is the observation key.
     """
     observations = []
     path = data_dir / "individual_state.csv"

@@ -1,1 +1,2 @@
 data/*.csv
+src/parsers/__pycache__/csv_parser.cpython-314.pyc

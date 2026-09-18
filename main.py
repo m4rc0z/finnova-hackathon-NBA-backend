@@ -2,6 +2,7 @@ import csv
 import json
 from pathlib import Path
 from pydantic import BaseModel
+from src.feature_engineering import build_customer_features, get_top_actions
 from src.parsers.csv_parser import DataLoader
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
@@ -22,6 +23,7 @@ COLLECTIONS = {
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.loader = DataLoader("data/")
+    app.state.customer_features = None
     yield
 
 app = FastAPI(
@@ -58,6 +60,35 @@ def matches_filters(
 def health(request: Request) -> dict[str, str]:
     status = "loaded" if hasattr(request.app.state, "loader") else "loading"
     return {"status": "ok", "data": status}
+
+def get_customer_feature(request: Request, individual_id: str) -> dict[str, Any]:
+    if request.app.state.customer_features is None:
+        request.app.state.customer_features = {
+            row["individual_id"]: row
+            for row in build_customer_features(request.app.state.loader)
+        }
+    feature = request.app.state.customer_features.get(individual_id)
+    if feature is None:
+        raise HTTPException(status_code=404, detail="Individual not found")
+    return feature
+
+@app.get(
+    "/api/v1/individuals/{individual_id}/features",
+    responses={404: {"description": "Individual not found"}},
+)
+def individual_features(request: Request, individual_id: str) -> dict[str, Any]:
+    return get_customer_feature(request, individual_id)
+
+@app.get(
+    "/api/v1/individuals/{individual_id}/recommendations",
+    responses={404: {"description": "Individual not found"}},
+)
+def individual_recommendations(request: Request, individual_id: str) -> dict[str, Any]:
+    feature = get_customer_feature(request, individual_id)
+    return {
+        "individual_id": individual_id,
+        "recommendations": get_top_actions(feature),
+    }
 
 @app.get("/api/v1/{collection}", responses={404: {"description": "Unknown collection"}})
 def list_collection(

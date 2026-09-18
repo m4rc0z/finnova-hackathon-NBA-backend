@@ -94,7 +94,19 @@ curl 'http://localhost:8000/api/v1/individuals/INDIVIDUAL_ID/features'
 curl 'http://localhost:8000/api/v1/individuals/INDIVIDUAL_ID/recommendations'
 ```
 
-Die Feature-Antwort enthält unter anderem Alter, Einkommen, Beschäftigung, Konten, aktuelle Salden, Transaktionssummen, Interaktionen, Stress und `has_pillar3a`. Die Empfehlungen enthalten jeweils `action`, `score` und `reasons`.
+Die Feature-Antwort enthält unter anderem Alter, Einkommen, Beschäftigung, Konten, aktuelle Salden, Transaktionssummen, Interaktionen, Stress, `has_pillar3a` und `product_inventory`. Das Inventar enthält bereits vorhandene Produktnamen und Kontotypen.
+
+Die Recommendation-Antwort enthält zusätzlich `product_suggestions`. Diese ordnen einer Action ein konkretes Produkt aus dem Katalog zu und schlagen keine Produkte vor, die der Kunde bereits besitzt.
+
+Erkannte Produkte sind unter anderem:
+
+```text
+Privatkonto, Sparkonto, Sparkonto Young, Jugendkonto, Jugendsparkonto
+Säule 3a-Konto, Säule 3a Fondssparplan, Lebensversicherung 3a
+Festhypothek
+Anlagesparkonto, Anlagekonto, Fondssparplan, Wertschriftendepot
+Freizügigkeitskonto, Kreditkarte Visa/Mastercard, Rechtsschutzversicherung
+```
 
 Die Features werden beim ersten Aufruf berechnet und anschließend im Speicher gecacht.
 
@@ -110,6 +122,47 @@ Für das AI-Projekt sind diese Scoring-Elemente vorgesehen:
 - `retirement_planning`: Alter/Ruhestand, vorhandene Vorsorge und Beratungshistorie
 
 Jede Empfehlung muss neben dem numerischen `score` nachvollziehbare `reasons` zurückgeben. Die Scores sind aktuell regelbasiert und dienen als erklärbare Baseline für ein späteres ML- oder LLM-Modell.
+
+## Response-Modell mit 7-Tage-Fenster
+
+Das Modul `src/response_model.py` erzeugt Trainingsbeispiele aus Events und Transaktionen. Für jede Kunden-/Action-Kombination wird geprüft, ob zwischen dem Beobachtungszeitpunkt und den folgenden sieben simulierten Tagen eine passende Aktivität stattfindet.
+
+Die Zeitachse wird als `period * 31 + day_of_month` geordnet. Sie ist eine simulierte Ordnung und kein echtes Kalenderdatum. Bei `individual_state.csv` wird mangels Tagesfeld Tag `1` verwendet.
+
+Beispielverwendung:
+
+```python
+from src.response_model import build_response_examples, train_response_model
+
+examples = build_response_examples("data/")
+classifier, metrics = train_response_model(examples)
+
+features = {
+	"age": 70,
+	"income_chf": 5000,
+	"total_balance_chf": 99488.34,
+	"num_accounts": 3,
+	"has_employer": False,
+	"stress": 40,
+}
+print(classifier.rank_actions(features))
+print(metrics)
+```
+
+Das Modell verwendet eine zeitbasierte Trennung: frühere Perioden werden zum Training und spätere Perioden zum Test verwendet. Es nutzt aktuell eine erklärbare Logistic Regression und liefert pro Action eine Conversion-Wahrscheinlichkeit für das 7-Tage-Fenster.
+
+Aktuelle Event-/Transaktions-Mappings:
+
+```text
+savings_transfer       -> offer_savings_account
+pillar3a                -> offer_pillar3a
+mortgage/mortgage_payment/property_purchase -> offer_mortgage
+investment/investment_contribution/investment_return -> offer_investment
+advice/financial_advice/consultation -> financial_advice
+retirement/pension/retirement_planning -> retirement_planning
+```
+
+Wichtig: Die Daten enthalten nicht, welche NBA einem Kunden tatsächlich angezeigt wurde. Das Modell misst daher historische Response-Wahrscheinlichkeit und keine kausale Wirkung einer Empfehlung. Für ein echtes Uplift-Modell müssen Recommendation-Impressions mit `individual_id`, Zeitpunkt, Action und Rank gespeichert werden.
 
 ### Interaktive Dokumentation
 

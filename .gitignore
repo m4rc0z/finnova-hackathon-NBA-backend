@@ -1,2 +1,9 @@
 data/*.csv
 src/parsers/__pycache__/csv_parser.cpython-314.pyc
+src/__pycache__/feature_engineering.cpython-314.pyc
+src/__pycache__/response_model.cpython-314.pyc
+src/__pycache__/suggestion_pipeline.cpython-314.pyc
+src/__pycache__/feature_engineering.cpython-314.pyc
+__pycache__/main.cpython-314.pyc
+__pycache__/main.cpython-314.pyc
+src/__pycache__/feature_engineering.cpython-314.pyc

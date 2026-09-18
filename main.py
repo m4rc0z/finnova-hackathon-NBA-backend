@@ -2,8 +2,9 @@ import csv
 import json
 from pathlib import Path
 from pydantic import BaseModel
-from src.feature_engineering import build_customer_features, get_top_actions
+from src.feature_engineering import build_customer_features, get_top_actions, score_actions
 from src.parsers.csv_parser import DataLoader
+from src.suggestion_pipeline import account_inventory, build_product_suggestions
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -77,7 +78,12 @@ def get_customer_feature(request: Request, individual_id: str) -> dict[str, Any]
     responses={404: {"description": "Individual not found"}},
 )
 def individual_features(request: Request, individual_id: str) -> dict[str, Any]:
-    return get_customer_feature(request, individual_id)
+    feature = get_customer_feature(request, individual_id).copy()
+    feature["product_inventory"] = account_inventory(
+        request.app.state.loader.accounts,
+        individual_id,
+    )
+    return feature
 
 @app.get(
     "/api/v1/individuals/{individual_id}/recommendations",
@@ -85,9 +91,18 @@ def individual_features(request: Request, individual_id: str) -> dict[str, Any]:
 )
 def individual_recommendations(request: Request, individual_id: str) -> dict[str, Any]:
     feature = get_customer_feature(request, individual_id)
+    scored_actions = score_actions(feature)
     return {
         "individual_id": individual_id,
         "recommendations": get_top_actions(feature),
+        "product_suggestions": [
+            suggestion.as_dict()
+            for suggestion in build_product_suggestions(
+                scored_actions,
+                feature,
+                request.app.state.loader.accounts,
+            )
+        ],
     }
 
 @app.get("/api/v1/{collection}", responses={404: {"description": "Unknown collection"}})
